@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="author" content="Jose Francisco Diaz / picssel.com" />
+<title>Play mp4 videos with mediaelement.js in fancyBox</title>
+<link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/fancybox/2.1.5/jquery.fancybox.min.css" />
+<link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/fancybox/2.1.5/helpers/jquery.fancybox-buttons.css" />
+<link rel='stylesheet' id='me-player-css'  href='/scripts/mediaelement/mediaelementplayer.css' type='text/css' media='screen' />
+<style type="text/css">
+/* this demo specific styles */
+.fancybox-nav { width: 60px; }
+.fancybox-nav span { visibility: visible; opacity: 0.5;}
+.fancybox-nav:hover span {opacity: 1;}
+.fancybox-next { right: -60px;}
+.fancybox-prev { left: -60px;}
+.fancybox-title-over-wrap {  top: 0;  left: 0;  bottom: auto;  position: absolute;  width: 100%;  z-index: 8035;}
+#wrap ul {padding-left: 20px; font-size: 12px;}
+#videolist {list-style-type: none; padding: 0;}
+#videolist li {float: left;}
+.fancy_video {position: relative; width: 162px; height:162px; display: block; float: left; margin: 10px 20px; z-index:1}
+.fancy_video img {cursor:pointer; text-decoration: none; /* margin: 10px 20px;*/ padding: 5px; border: solid 1px #dedede; background-color: #f8f8f8; }
+.fancy_video:hover img {background-color: #e8e8e8;}
+.fancy_video:hover .playbutton {opacity: 0.7}
+.playbutton {  background: transparent url("/scripts/mediaelement/bigplay.png") no-repeat;  display: block;  height: 100px;  left: 31px;  opacity: 0.4;  overflow: hidden;  position: absolute;  top: 31px;  width: 100px;  z-index: 10;  cursor: pointer;}
+</style>
+<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/fancybox/2.1.5/jquery.fancybox.pack.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/fancybox/2.1.5/helpers/jquery.fancybox-buttons.js"></script>
+<script src='/scripts/mediaelement/mediaelement-and-player.min.js'></script>
+<script>
+/************************************************************************
+Play mp4 videos with mediaelement.js in fancyBox
+Francisco Diaz (JFK) / picssel.com
+Version 1.0
+************************************************************************/
+// Detecting IE more effectively : http://msdn.microsoft.com/en-us/library/ms537509.aspx
+function getInternetExplorerVersion() {
+    // Returns the version of Internet Explorer or -1 (other browser)
+    var rv = -1; // Return value assumes failure.
+    if (navigator.appName == 'Microsoft Internet Explorer') {
+        var ua = navigator.userAgent;
+        var re = new RegExp("MSIE ([0-9]{1,}[\.0-9]{0,})");
+        if (re.exec(ua) != null)
+            rv = parseFloat(RegExp.$1);
+    };
+    return rv;
+};
+// set some general variables
+var $video_player, _videoHref, _videoPoster, _videoWidth, _videoHeight, _dataCaption, _player, _isPlaying = false, _verIE = getInternetExplorerVersion();
+jQuery(document).ready(function ($) {  
+    jQuery(".fancy_video")
+    .prepend("<span class=\"playbutton\"/>") //cosmetic : append a play button image
+    .fancybox({
+        // set type of content (remember, we are building the HTML5 <video> tag as content)
+        type       : "html",
+        // other API options
+        scrolling  : "no",
+        padding    : 0,
+        nextEffect : "fade",
+        prevEffect : "fade",
+        nextSpeed  : 0,
+        prevSpeed  : 0,
+        fitToView  : false,
+        autoSize   : false,
+        modal      : true, // hide default close and navigation buttons
+        helpers    : {
+            title  : {
+                type : "over"
+            },
+            buttons: {} // use buttons helpers so navigation button won't overlap video controls
+        },
+        beforeLoad : function () {
+            // if video is playing and we navigate to next/prev element of a fancyBox gallery
+            // safely remove Flash objects in IE
+            if (_isPlaying && (_verIE > -1)) {
+                // video is playing AND we are using IE
+                _verIE < 9.0 ? _player.remove() : $video_player.remove(); // remove player instance for IE
+                _isPlaying = false; // reinitialize flag
+            };
+            // build the HTML5 video structure for fancyBox content with specific parameters
+            _videoHref   = this.href;
+            // validates if data values were passed otherwise set defaults
+            _videoPoster = typeof this.element.data("poster")  !== "undefined" ? this.element.data("poster")  :  "";
+            _videoWidth  = typeof this.element.data("width")   !== "undefined" ? this.element.data("width")   : 360;
+            _videoHeight = typeof this.element.data("height")  !== "undefined" ? this.element.data("height")  : 360;
+            _dataCaption = typeof this.element.data("caption") !== "undefined" ? this.element.data("caption") :  "";
+            // construct fancyBox title (optional)
+            this.title = _dataCaption ? _dataCaption : (this.title ? this.title : "");
+            // set fancyBox content and pass parameters
+            this.content = "<video id='video_player' src='" + _videoHref + "'  poster='" + _videoPoster + "' width='" + _videoWidth + "' height='" + _videoHeight + "'  controls='controls' preload='none' ></video>";
+            // set fancyBox dimensions
+            this.width = _videoWidth;
+            this.height = _videoHeight;
+        },
+        afterShow : function () {
+            // initialize MEJS player
+            var $video_player = new MediaElementPlayer('#video_player', {
+                    defaultVideoWidth : this.width,
+                    defaultVideoHeight : this.height,
+                    success : function (mediaElement, domObject) {
+                        _player = mediaElement; // override the "mediaElement" instance to be used outside the success setting
+                        _player.load(); // fixes webkit firing any method before player is ready
+                        _player.play(); // autoplay video (optional)
+                        _player.addEventListener('playing', function () {
+                            _isPlaying = true;
+                        }, false);
+                    } // success
+                });
+        },
+        beforeClose : function () {
+            // if video is playing and we close fancyBox
+            // safely remove Flash objects in IE
+            if (_isPlaying && (_verIE > -1)) {
+                // video is playing AND we are using IE
+                _verIE < 9.0 ? _player.remove() : $video_player.remove(); // remove player instance for IE
+                _isPlaying = false; // reinitialize flag
+            };
+        }
+    });
+}); // ready
+</script>
+</head>
+<body>
+<div id="wrap" class="cf">
+  <h2>Play (mp4) videos with mediaelement.js in fancyBox</h2>
+  <h4>Demo : June 2014</h4>
+  <div class="cf">
+    <ul id="videolist">
+
+      <li><a class="fancy_video" data-fancybox-group="videoGallery" href="http://videos-f-5.ak.instagram.com/hphotos-ak-prn/10374727_238077296386185_1685781536_n.mp4" data-width="520" data-height="520" data-poster="http://scontent-b.cdninstagram.com/hphotos-frc/t51.2885-15/10369513_880265978666597_548066800_n.jpg" data-caption="Michael Kors" title="Michael Kors"><img src="http://scontent-b.cdninstagram.com/hphotos-frc/t51.2885-15/10369513_880265978666597_548066800_s.jpg" alt="Michael Kors" /></a></li>
+
+      <li><a class="fancy_video" data-fancybox-group="videoGallery" href="http://distilleryvesper3-19.ak.instagram.com/31fe43509e4011e3b9251256f5abc793_101.mp4" data-width="420" data-height="420" data-poster="http://photos-h.ak.instagram.com/hphotos-ak-ash/915498_265573750285871_1139073698_n.jpg" data-caption="Lululemon" title="Lululemon"><img src="http://photos-h.ak.instagram.com/hphotos-ak-ash/915498_265573750285871_1139073698_s.jpg" alt="Lululemon" /></a></li>
+
+      <li><a class="fancy_video" data-fancybox-group="videoGallery" href="http://distilleryvesper11-7.ak.instagram.com/3758ff9ed9cd11e2aa0912313817975d_101.mp4" data-width="480" data-height="480" data-poster="http://distilleryimage11.ak.instagram.com/3758ff9ed9cd11e2aa0912313817975d_7.jpg" data-caption="General Electric" title="General Electric"><img src="http://distilleryimage11.ak.instagram.com/3758ff9ed9cd11e2aa0912313817975d_5.jpg" alt="General Electric" /></a></li>
+
+      <li><a class="fancy_video" data-fancybox-group="videoGallery" href="http://videos-d-13.ak.instagram.com/hphotos-ak-prn/1968938_308401719313353_1339841628_n.mp4" data-width="380" data-height="380" data-poster="http://photos-d.ak.instagram.com/hphotos-ak-prn/10009264_233225676872755_1395536783_n.jpg" data-caption="Mercedes Benz" title="Mercedes Benz"><img src="http://photos-d.ak.instagram.com/hphotos-ak-prn/10009264_233225676872755_1395536783_s.jpg" alt="Mercedes Benz" /></a></li>
+
+      <li><a class="fancy_video" data-fancybox-group="videoGallery" href="http://distilleryvesper3-15.ak.instagram.com/b0ce80e6b91111e3a16a122b8b9af17f_101.mp4"  data-poster="http://photos-h.ak.instagram.com/hphotos-ak-ash/10011258_688891784492223_294700298_n.jpg" data-caption="Coca Cola" title="Coca Cola"><img src="http://photos-h.ak.instagram.com/hphotos-ak-ash/10011258_688891784492223_294700298_s.jpg" alt="Coca Cola" /></a></li>
+
+      <li><a class="fancy_video" data-fancybox-group="videoGallery" href="http://distilleryvesper3-7.ak.instagram.com/d7a2deba635811e3b6a7126315c1ffe7_101.mp4" data-width="480" data-height="480" data-poster="http://distilleryimage3.ak.instagram.com/d7a2deba635811e3b6a7126315c1ffe7_8.jpg" data-caption="Nike" title="Nike"><img src="http://distilleryimage3.ak.instagram.com/d7a2deba635811e3b6a7126315c1ffe7_5.jpg" alt="Nike" /></a></li>
+
+    </ul>
+  </div><br /><br />
+  <h2>NOTES</h2><br />
+  <h3>This demo uses :</h3>
+  <ul>
+    <li>fancyBox v2.1.5</li>
+    <li>mediaelement.js v2.14.2</li>
+  </ul><br /><br />
+  <h3>Compatibility :</h3>
+  <p>Works with jQuery v1.7 to v1.11.1, and jQuery 2.x (IE &lt; 9 is not supported)</p><br />
+  <h3>Tested with :</h3>
+  <ul>
+    <li>Firefox v30</li>
+    <li>Chrome v35.0.1916.114 m</li>
+    <li>Opera v12.17 / v22</li>
+    <li>Internet Explorer 7-11</li>
+    <li>Safari Windows v5.1.7(7534.57.2)</li>
+    <li>Safari iOS7 (iPad/iPhone)</li>
+    <li>Twitter iOS7 APP build-in browser</li>
+  </ul><br /><br />
+  <p style="font-size: 11px; padding: 10px 0"><strong>Disclaimer</strong> : All trademarks, videos and images remain property of their respective holders, and are used for demo purposes only.</p><br />
+</div><!--wrap-->
+</body>
+</html>
